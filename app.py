@@ -112,6 +112,7 @@ def predict():
         ]])
 
         # Prediksi
+        reshaped = values.reshape(1, -1)
         predicted = model.predict(values)[0]
         probabilities = model.predict_proba(values)[0]
 
