@@ -113,8 +113,8 @@ def predict():
 
         # Prediksi
         reshaped = values.reshape(1, -1)
-        predicted = model.predict(values)[0]
-        probabilities = model.predict_proba(values)[0]
+        predicted = model.predict(reshaped)[0]
+        probabilities = model.predict_proba(reshaped)[0]
 
         label_classes = ['Not CKD', 'CKD']
 
