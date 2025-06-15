@@ -9,4 +9,3 @@ gunicorn
 flask_cors
 flasgger
 joblib
-lightgbm
