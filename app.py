@@ -5,9 +5,18 @@ import numpy as np
 import joblib
 import logging
 from datetime import datetime
+from sklearn.preprocessing import StandardScaler
 
 # Load model
-model = joblib.load('svm_fuzzy_model.pkl')
+# model = joblib.load('svm_fuzzy_model.pkl')\
+try:
+    model = joblib.load('svm_fuzzy_model2.pkl')
+    logging.info("Model loaded successfully")
+except Exception as e:
+    logging.error(f"Failed to load model: {str(e)}")
+    raise
+
+
 
 # Setup logging
 logging.basicConfig(
@@ -99,22 +108,25 @@ def predict():
 
         # Ambil nilai fitur dari body
         values = np.array([[ 
-            int(data['haemoglobin_cat']),
-            int(data['specific_gravity_cat']),
-            int(data['albumin_cat']),
-            int(data['blood_glucose_random_cat']),
-            int(data['sugar_cat']),
-            int(data['age_cat']),
-            int(data['blood_urea_cat']),
-            int(data['blood_pressure_cat']),
-            int(data['serum_creatinine_cat']),
-            int(data['sodium_cat'])
+            float(data['haemoglobin_cat']),
+            float(data['specific_gravity_cat']),
+            float(data['albumin_cat']),
+            float(data['blood_glucose_random_cat']),
+            float(data['sugar_cat']),
+            float(data['age_cat']),
+            float(data['blood_urea_cat']),
+            float(data['blood_pressure_cat']),
+            float(data['serum_creatinine_cat']),
+            float(data['sodium_cat'])
         ]])
 
-        # Prediksi
-        reshaped = values.reshape(1, -1)
-        predicted = model.predict(reshaped)[0]
-        probabilities = model.predict_proba(reshaped)[0]
+        # Scaling input
+        scaler = StandardScaler()
+        valueScaled = scaler.fit_transform(values)
+
+        # Predict
+        predicted = model.predict(valueScaled)[0]
+        probabilities = model.predict_proba(valueScaled)[0]
 
         label_classes = ['Not CKD', 'CKD']
 
