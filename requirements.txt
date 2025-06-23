@@ -3,9 +3,10 @@ itsdangerous
 Jinja2
 Markupsafe
 numpy
-scikit-learn
+scikit-learn==1.6.1
 python-dotenv
 gunicorn
 flask_cors
 flasgger
 joblib
+pandas
