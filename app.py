@@ -2,21 +2,17 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flasgger import Swagger, swag_from
 import numpy as np
+import pandas as pd
 import joblib
 import logging
 from datetime import datetime
-from sklearn.preprocessing import StandardScaler
 
-# Load model
-# model = joblib.load('svm_fuzzy_model.pkl')\
-try:
-    model = joblib.load('svm_fuzzy_model2.pkl')
-    logging.info("Model loaded successfully")
-except Exception as e:
-    logging.error(f"Failed to load model: {str(e)}")
-    raise
+# Load model dan preprocessor
+model = joblib.load('svm_10fitur.pkl')
+preprocessor = joblib.load('preprocessor_10fitur.pkl')
 
-
+# Label klasifikasi (pastikan urutannya sesuai dengan label pada model)
+label_classes = ['Negatif CKD', 'Positif CKD']
 
 # Setup logging
 logging.basicConfig(
@@ -34,12 +30,11 @@ swagger = Swagger(app)
 def home():
     return jsonify({"message": "Test API"})
 
-
 @app.route('/predict', methods=['POST'])
 @swag_from({
     'tags': ['Prediction'],
     'summary': 'Predict Kidney Disease Classification',
-    'description': 'Menerima input fitur kategori dan mengembalikan hasil klasifikasi penyakit ginjal.',
+    'description': 'Menerima input fitur numerik dan mengembalikan hasil klasifikasi penyakit ginjal.',
     'consumes': ['application/json'],
     'produces': ['application/json'],
     'parameters': [
@@ -50,22 +45,21 @@ def home():
             'schema': {
                 'type': 'object',
                 'properties': {
-                    'haemoglobin_cat': {'type': 'integer', 'example': 2},
-                    'specific_gravity_cat': {'type': 'integer', 'example': 1},
-                    'albumin_cat': {'type': 'integer', 'example': 3},
-                    'blood_glucose_random_cat': {'type': 'integer', 'example': 1},
-                    'sugar_cat': {'type': 'integer', 'example': 0},
-                    'age_cat': {'type': 'integer', 'example': 2},
-                    'blood_urea_cat': {'type': 'integer', 'example': 2},
-                    'blood_pressure_cat': {'type': 'integer', 'example': 1},
-                    'serum_creatinine_cat': {'type': 'integer', 'example': 2},
-                    'sodium_cat': {'type': 'integer', 'example': 1}
+                    'haemoglobin': {'type': 'number', 'example': 12.3},
+                    'specific_gravity': {'type': 'number', 'example': 1.02},
+                    'albumin': {'type': 'number', 'example': 0},
+                    'blood_glucose_random': {'type': 'number', 'example': 110},
+                    'sugar': {'type': 'number', 'example': 0},
+                    'age': {'type': 'number', 'example': 45},
+                    'blood_urea': {'type': 'number', 'example': 40},
+                    'blood_pressure': {'type': 'number', 'example': 80},
+                    'serum_creatinine': {'type': 'number', 'example': 1.2},
+                    'sodium': {'type': 'number', 'example': 140}
                 },
                 'required': [
-                    'haemoglobin_cat', 'specific_gravity_cat', 'albumin_cat',
-                    'blood_glucose_random_cat', 'sugar_cat', 'age_cat',
-                    'blood_urea_cat', 'blood_pressure_cat', 
-                    'serum_creatinine_cat', 'sodium_cat'
+                    'haemoglobin', 'specific_gravity', 'albumin', 'blood_glucose_random',
+                    'sugar', 'age', 'blood_urea', 'blood_pressure', 
+                    'serum_creatinine', 'sodium'
                 ]
             }
         }
@@ -106,37 +100,36 @@ def predict():
         data = request.json
         logging.info(f"Received prediction request: {data}")
 
-        # Ambil nilai fitur dari body
-        values = np.array([[ 
-            float(data['haemoglobin_cat']),
-            float(data['specific_gravity_cat']),
-            float(data['albumin_cat']),
-            float(data['blood_glucose_random_cat']),
-            float(data['sugar_cat']),
-            float(data['age_cat']),
-            float(data['blood_urea_cat']),
-            float(data['blood_pressure_cat']),
-            float(data['serum_creatinine_cat']),
-            float(data['sodium_cat'])
-        ]])
+        # Masukkan data ke DataFrame dengan urutan yang sesuai
+        values = np.array([[
+            float(data['haemoglobin']),
+            float(data['specific_gravity']),
+            float(data['albumin']),
+            float(data['blood_glucose_random']),
+            float(data['sugar']),
+            float(data['age']),
+            float(data['blood_urea']),
+            float(data['blood_pressure']),
+            float(data['serum_creatinine']),
+            float(data['sodium'])
+        ]]).reshape(1, -1)
 
-        # Scaling input
-        scaler = StandardScaler()
-        valueScaled = scaler.fit_transform(values)
-
-        # Predict
-        predicted = model.predict(valueScaled)[0]
-        probabilities = model.predict_proba(valueScaled)[0]
-
-        label_classes = ['Not CKD', 'CKD']
-
+        features = ['haemoglobin', 'specific_gravity','albumin',
+                'blood_glucose_random', 'sugar', 'age',
+                'blood_urea', 'blood_pressure', 'serum_creatinine', 'sodium']
+        input_df = pd.DataFrame(values, columns=features)
+        df_processed = preprocessor.transform(input_df)
+        predicted = model.predict(df_processed)[0]
+        probabilities = model.predict_proba(df_processed)[0]
+        prob_dict = {
+            label_classes[i]: float(probabilities[i]) for i in range(len(label_classes))
+        }
+        logging.info(f"Probabilities: {prob_dict}")
+        # Return response
         return jsonify({
             "success": True,
-            'predicted_label': label_classes[predicted],
-            'probabilities': {
-                label_classes[0]: round(float(probabilities[0]), 4),
-                label_classes[1]: round(float(probabilities[1]), 4)
-            },
+            "predicted_label": label_classes[predicted],
+            "probabilities": prob_dict,
             "timestamp": datetime.now().isoformat()
         })
 
